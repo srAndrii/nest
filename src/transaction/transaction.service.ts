@@ -1,26 +1,62 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Transaction } from './entities/transaction.entity';
+import { Repository } from 'typeorm';
+import { title } from 'process';
 
 @Injectable()
 export class TransactionService {
-  create(createTransactionDto: CreateTransactionDto) {
-    return 'This action adds a new transaction';
+  constructor(
+    @InjectRepository(Transaction)
+    private readonly transactionRepository:Repository<Transaction>
+  ) {}
+
+  async create(createTransactionDto: CreateTransactionDto, id: number) {
+    const newTransaction = {
+      title: createTransactionDto.title,
+      amount: createTransactionDto.amount,
+      type: createTransactionDto.type,
+      user: {id},
+      category:{id: +createTransactionDto.category},
+    }
+   if(!newTransaction){
+    throw new BadRequestException('Transaction not created')
+   }
+    
+
+  return await this.transactionRepository.save(newTransaction)
   }
 
-  findAll() {
-    return `This action returns all transaction`;
+  async findAll(id: number) {
+    const transactions = await this.transactionRepository.find({where:{user:{id}}, order:{createdAt:'DESC'}})
+    return transactions
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} transaction`;
+  async findOne(id: number) {
+    const transaction = await this.transactionRepository.findOne({
+      where:{id},
+      relations:['category', 'user']
+    })
+    if(!transaction){
+      throw new BadRequestException('Transaction not found')
+    }
+    return transaction
   }
+    
 
   update(id: number, updateTransactionDto: UpdateTransactionDto) {
     return `This action updates a #${id} transaction`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} transaction`;
+  async remove(id: number) {
+    const transaction = await this.transactionRepository.findOne({
+      where:{id}
+    })
+    if(!transaction){
+      throw new BadRequestException('Transaction not found')
+    }
+    return await this.transactionRepository.delete(id)
   }
 }
